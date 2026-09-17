@@ -19,6 +19,22 @@ const SIZES = [
   ["cap16",   800,  450,  "wide capsule"],
 ];
 const PLATFORMS = ["Windows", "macOS", "Linux", "Web", "Android"];
+const FONTS = {
+  // Google-font-backed stacks load when online (display=swap); system fallbacks keep it offline-capable
+  block:     { name: "Block",        stack: "'Archivo Black','Arial Black','Helvetica Neue',sans-serif" },
+  anton:     { name: "Anton",        stack: "'Anton','Arial Black',sans-serif" },
+  bebas:     { name: "Bebas Neue",   stack: "'Bebas Neue','Oswald','Arial Narrow',sans-serif" },
+  cinzel:    { name: "Cinzel",       stack: "'Cinzel',Georgia,'Times New Roman',serif" },
+  orbitron:  { name: "Orbitron",     stack: "'Orbitron','Segoe UI',sans-serif" },
+  righteous: { name: "Righteous",    stack: "'Righteous','Trebuchet MS',sans-serif" },
+  pixel:     { name: "Pixel",        stack: "'Press Start 2P','Silkscreen',monospace" },
+  marker:    { name: "Marker",       stack: "'Permanent Marker','Comic Sans MS',cursive" },
+  mono:      { name: "Mono",         stack: "ui-monospace,Menlo,monospace" },
+  serif:     { name: "Serif",        stack: "Georgia,'Times New Roman',serif" },
+  clean:     { name: "Clean",        stack: "system-ui,'Segoe UI',Roboto,sans-serif" },
+  condensed: { name: "Condensed",    stack: "'Oswald','Arial Narrow','Helvetica Neue Condensed',sans-serif" },
+  playful:   { name: "Playful",      stack: "'Comic Sans MS','Chalkboard SE',cursive" },
+};
 
 const state = {
   template: "ember", size: "cover", anchor: "bl",
@@ -27,6 +43,8 @@ const state = {
   tagline: "A hand-drawn journey through the ruin belt",
   dev: "skitworks", accent: "#ff5c5c", textcolor: "#ffffff",
   glow: 40, vig: 35, grad: 55, tsize: 0, crop: 50,
+  font: "block", ls: 6, upper: true, stroke: 70, strokecol: "#000000", grain: 0, blur: 0,
+  safe: false, wm: false,
   badges: true, scan: false, plats: ["Windows", "macOS", "Linux", "Web"],
 };
 
@@ -41,12 +59,14 @@ function hexA(hex, a) {
 function lerp(a, b, t) { return a + (b - a) * t; }
 
 /* cover-draw an image into rect, honoring crop slider */
-function drawCover(ctx, img, W, H, crop) {
+function drawCover(ctx, img, W, H, crop, blur) {
   const iw = img.width, ih = img.height;
   const base = Math.max(W / iw, H / ih);
   const zoom = lerp(base, Math.max(W, H) / Math.min(iw, ih), crop / 100 * 0.6);
   const dw = iw * zoom, dh = ih * zoom;
+  if (blur > 0 && "filter" in ctx) ctx.filter = `blur(${blur}px)`;
   ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  if (blur > 0 && "filter" in ctx) ctx.filter = "none";
 }
 
 /* ---------- sample key-art generator (seeded, template-tinted) ---------- */
@@ -133,9 +153,13 @@ function drawTextBlock(ctx, W, H, o) {
   const align = o.anchor[1] === "l" ? "left" : o.anchor[1] === "r" ? "right" : "center";
   const base = o.anchor[0] === "t" ? 1 : o.anchor[0] === "c" ? 0 : -1;
 
+  const font = (FONTS[o.font] || FONTS.block).stack;
+  const title = o.upper ? o.title.toUpperCase() : o.title;
   // title font size: auto from canvas size unless overridden
-  let ts = o.tsize || Math.round(Math.min(W, H) * (o.title.length > 14 ? 0.105 : 0.13));
-  const lines = wrap(ctx, o.title, W - pad * 2, `700 ${ts}px ui-monospace, Menlo, monospace`);
+  let ts = o.tsize || Math.round(Math.min(W, H) * (title.length > 14 ? 0.105 : 0.13));
+  ctx.font = `700 ${ts}px ${font}`;
+  if ("letterSpacing" in ctx) ctx.letterSpacing = (ts * (o.ls || 0) / 100) + "px";   // BEFORE wrap so measureText sees it
+  const lines = wrap(ctx, title, W - pad * 2, ctx.font);
   const lh = ts * 1.06;
   const blockH = lines.length * lh + (o.tagline ? ts * 0.52 : 0) + (o.dev ? ts * 0.4 : 0);
 
@@ -147,16 +171,23 @@ function drawTextBlock(ctx, W, H, o) {
   const gx = align === "left" ? ax : align === "right" ? ax : ax;
 
   // title with glow + stroke
-  ctx.font = `700 ${ts}px ui-monospace, Menlo, monospace`;
+  ctx.font = `700 ${ts}px ${font}`;
   ctx.shadowColor = o.glowCol; ctx.shadowBlur = ts * (o.glow / 100) * 0.9;
-  ctx.lineWidth = Math.max(2, ts / 14); ctx.strokeStyle = "rgba(0,0,0,0.72)";
-  for (const ln of lines) { ctx.strokeText(ln, gx, y); ctx.fillStyle = o.text; ctx.fillText(ln, gx, y); y += lh; }
+  if (o.stroke > 0) {
+    ctx.lineWidth = Math.max(1, ts / 14 * (o.stroke / 70));
+    ctx.strokeStyle = hexA(o.strokeCol || "#000000", 0.75);
+  }
+  for (const ln of lines) {
+    if (o.stroke > 0) ctx.strokeText(ln, gx, y);
+    ctx.fillStyle = o.text; ctx.fillText(ln, gx, y); y += lh;
+  }
   ctx.shadowBlur = 0;
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
 
   if (o.tagline) {
     y += ts * 0.06;
     const fs = Math.round(ts * 0.34);
-    ctx.font = `${fs}px ui-monospace, Menlo, monospace`;
+    ctx.font = `${fs}px ${font}`;
     ctx.fillStyle = hexA(o.text, 0.85); ctx.shadowColor = "rgba(0,0,0,.8)"; ctx.shadowBlur = fs / 3;
     for (const ln of wrap(ctx, o.tagline, W - pad * 2, ctx.font)) {
       ctx.fillText(ln, gx, y + fs); y += fs * 1.35;
@@ -165,7 +196,7 @@ function drawTextBlock(ctx, W, H, o) {
   }
   if (o.dev) {
     const fs = Math.round(ts * 0.27);
-    ctx.font = `700 ${fs}px ui-monospace, Menlo, monospace`;
+    ctx.font = `700 ${fs}px ${font}`;
     ctx.fillStyle = o.accent; ctx.shadowColor = "rgba(0,0,0,.8)"; ctx.shadowBlur = fs / 3;
     const tag = "by " + o.dev;
     if (base > 0) { // below title block
@@ -224,7 +255,7 @@ function rrect(ctx, x, y, w, h, r) {
 }
 
 /* ---------- main render ---------- */
-function render(W, H) {
+function render(W, H, opts) {
   const t = TEMPLATES[state.template];
   const c = document.createElement("canvas");
   c.width = W; c.height = H;
@@ -232,7 +263,7 @@ function render(W, H) {
 
   // 1. background
   const src = state.bgIndex >= 0 ? state.images[state.bgIndex] : state.sample;
-  if (src) drawCover(x, src, W, H, state.crop);
+  if (src) drawCover(x, src, W, H, state.crop, state.blur);
   else {
     const g = x.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, t.g[0]); g.addColorStop(1, t.g[1]);
@@ -258,15 +289,53 @@ function render(W, H) {
     x.fillStyle = v; x.fillRect(0, 0, W, H);
   }
 
+  // 4.5 film grain (seeded, stable across refreshes)
+  if (state.grain > 0) {
+    const nz = document.createElement("canvas");
+    const ns = 3; // 1/3-res noise tiled
+    nz.width = Math.ceil(W / ns); nz.height = Math.ceil(H / ns);
+    const nx = nz.getContext("2d");
+    const id = nx.createImageData(nz.width, nz.height);
+    const rnd = mulberry(1234);
+    for (let i = 0; i < id.data.length; i += 4) {
+      const v = (rnd() * 255) | 0;
+      id.data[i] = id.data[i+1] = id.data[i+2] = v; id.data[i+3] = 255;
+    }
+    nx.putImageData(id, 0, 0);
+    x.save(); x.globalAlpha = state.grain / 100 * 0.5; x.globalCompositeOperation = "overlay";
+    x.drawImage(nz, 0, 0, W, H); x.restore();
+  }
+
   // 5. text
   drawTextBlock(x, W, H, {
     anchor: state.anchor, title: state.title, tagline: state.tagline, dev: state.dev,
     text: state.textcolor, accent: state.accent, glow: state.glow, glowCol: t.glow,
     tsize: state.tsize, badges: state.badges,
+    font: state.font, ls: state.ls, upper: state.upper,
+    stroke: state.stroke, strokeCol: state.strokecol,
   });
 
   // 6. badges
   drawBadges(x, W, H, { badges: state.badges, plats: state.plats, accent: state.accent, text: state.textcolor });
+
+  // 7. optional watermark (on by default when toggled; burned into exports)
+  if ((!opts || opts.wm !== false) && state.wm) {
+    const wf = Math.round(Math.min(W, H) * 0.024);
+    x.font = `${wf}px ui-monospace, Menlo, monospace`;
+    x.textAlign = "right"; x.textBaseline = "bottom";
+    x.fillStyle = "rgba(255,255,255,0.45)";
+    x.fillText("made with CapsuleForge", W - wf, H - wf * 0.8);
+  }
+
+  // 8. safe-area guide — preview only, NEVER exported
+  if (opts && opts.guide && state.safe) {
+    const gx = W * 0.08, gy = H * 0.08;
+    x.save();
+    x.strokeStyle = "rgba(255,255,255,0.5)"; x.lineWidth = Math.max(1, W / 400);
+    x.setLineDash([Math.max(4, W / 60), Math.max(3, W / 90)]);
+    x.strokeRect(gx, gy, W - gx * 2, H - gy * 2);
+    x.restore();
+  }
 
   return c;
 }
@@ -274,7 +343,7 @@ function render(W, H) {
 /* ---------- preview ---------- */
 function refresh() {
   const [id, W, H] = SIZES.find(s => s[0] === state.size);
-  const out = render(W, H);
+  const out = render(W, H, { guide: true });
   const pv = $("preview");
   pv.width = W; pv.height = H;
   pv.getContext("2d").drawImage(out, 0, 0);
@@ -337,6 +406,67 @@ function init() {
     pg.appendChild(l);
   }
 
+  // font select
+  const fs = $("font");
+  for (const [key, f] of Object.entries(FONTS)) {
+    const o = document.createElement("option");
+    o.value = key; o.textContent = f.name;
+    if (key === state.font) o.selected = true;
+    fs.appendChild(o);
+  }
+  fs.onchange = e => { state.font = e.target.value; refresh(); };
+
+  // safe-area guide + watermark toggles
+  $("safe").onchange = e => { state.safe = e.target.checked; refresh(); };
+  $("wm").onchange = e => { state.wm = e.target.checked; refresh(); };
+
+  // reset art direction to defaults (keeps uploaded images)
+  $("reset").onclick = () => {
+    Object.assign(state, {
+      template: "ember", font: "block", anchor: "bl",
+      accent: "#ff5c5c", textcolor: "#ffffff",
+      glow: 40, vig: 35, grad: 55, tsize: 0, crop: 50,
+      ls: 6, upper: true, stroke: 70, strokecol: "#000000",
+      grain: 0, blur: 0, safe: false, wm: false, scan: false,
+      badges: true, plats: ["Windows", "macOS", "Linux", "Web"],
+    });
+    $("font").value = "block"; $("anchor").value = "bl";
+    $("accent").value = "#ff5c5c"; $("textcolor").value = "#ffffff";
+    $("upper").checked = true; $("scan").checked = false;
+    $("badges").checked = true; $("safe").checked = false; $("wm").checked = false;
+    $("glow").value = 40; $("glowv").textContent = "40%";
+    $("vig").value = 35; $("vigv").textContent = "35%";
+    $("grad").value = 55; $("gradv").textContent = "55%";
+    $("crop").value = 50; $("cropv").textContent = "50%";
+    $("ls").value = 6; $("lsv").textContent = "6%";
+    $("stroke").value = 70; $("strokev").textContent = "70%";
+    $("strokecol").value = "#000000";
+    $("grain").value = 0; $("grainv").textContent = "0%";
+    $("blur").value = 0; $("blurv").textContent = "0px";
+    $("tsize").value = 0; $("tsizev").textContent = "auto";
+    document.querySelectorAll("#plats input").forEach((el, i) =>
+      el.checked = state.plats.includes(PLATFORMS[i]));
+    [...$("tpls").children].forEach((el, i) =>
+      el.classList.toggle("on", Object.keys(TEMPLATES)[i] === "ember"));
+    if (!state.images.length) genSample(true);
+    refresh();
+  };
+
+  // randomize art direction
+  $("rand").onclick = () => {
+    const keys = Object.keys(TEMPLATES), fkeys = Object.keys(FONTS);
+    const anchors = ["bl", "bc", "br", "cl", "cc", "cr", "tl", "tc", "tr"];
+    state.template = keys[(Math.random() * keys.length) | 0];
+    state.font = fkeys[(Math.random() * fkeys.length) | 0];
+    state.anchor = anchors[(Math.random() * anchors.length) | 0];
+    state.accent = "#" + ((Math.random() * 0xffffff) | 0).toString(16).padStart(6, "0");
+    $("accent").value = state.accent; $("anchor").value = state.anchor;
+    fs.value = state.font;
+    [...$("tpls").children].forEach((el, i) => el.classList.toggle("on", keys[i] === state.template));
+    if (!state.images.length) genSample(true);
+    refresh();
+  };
+
   // text inputs
   const bind = (id, key) => { $(id).oninput = e => { state[key] = e.target.value; refresh(); }; };
   bind("title", "title"); bind("tagline", "tagline"); bind("dev", "dev");
@@ -347,7 +477,7 @@ function init() {
   const bindR = (id, key, label) => {
     $(id).oninput = e => {
       state[key] = +e.target.value;
-      if (label) $(label).textContent = key === "tsize" && !+e.target.value ? "auto" : e.target.value + "%";
+      if (label) $(label).textContent = e.target.value + "%";
       refresh();
     };
   };
@@ -360,6 +490,11 @@ function init() {
   };
   $("anchor").onchange = e => { state.anchor = e.target.value; refresh(); };
   $("badges").onchange = e => { state.badges = e.target.checked; refresh(); };
+  $("upper").onchange = e => { state.upper = e.target.checked; refresh(); };
+  $("strokecol").oninput = e => { state.strokecol = e.target.value; refresh(); };
+  bindR("ls", "ls", "lsv"); bindR("stroke", "stroke", "strokev");
+  bindR("grain", "grain", "grainv");
+  $("blur").oninput = e => { state.blur = +e.target.value; $("blurv").textContent = e.target.value + "px"; refresh(); };
   $("scan").onchange = e => { state.scan = e.target.checked; refresh(); };
 
   // drop zone
@@ -395,8 +530,8 @@ function init() {
     }
   } catch (e) {}
   const persist = () => {
-    const { title, tagline, dev, accent, textcolor, template, anchor, glow, vig, grad, badges, plats } = state;
-    try { localStorage.setItem("capsuleforge", JSON.stringify({ title, tagline, dev, accent, textcolor, template, anchor, glow, vig, grad, badges, plats })); } catch (e) {}
+    const { title, tagline, dev, accent, textcolor, template, anchor, glow, vig, grad, badges, plats, font, ls, upper, stroke, strokecol, grain, blur, safe, wm } = state;
+    try { localStorage.setItem("capsuleforge", JSON.stringify({ title, tagline, dev, accent, textcolor, template, anchor, glow, vig, grad, badges, plats, font, ls, upper, stroke, strokecol, grain, blur, safe, wm })); } catch (e) {}
   };
   document.addEventListener("input", persist);
 

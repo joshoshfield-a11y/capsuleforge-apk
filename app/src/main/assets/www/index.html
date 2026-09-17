@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0e0e14">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e0e14'/%3E%3Crect x='6' y='10' width='20' height='12' rx='6' fill='%23ff5c5c'/%3E%3C/svg%3E">
+<title>CapsuleForge — itch.io Marketing Asset Studio</title>
+<style>
+  :root {
+    --bg: #0e0e14; --panel: #16161f; --panel2: #1d1d29; --line: #2b2b3d;
+    --txt: #e8e8f0; --dim: #9a9ab0; --acc: #ff5c5c; --acc2: #ffc857;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--txt);
+         font: 14px/1.5 ui-monospace, "SF Mono", Menlo, monospace; }
+  header { display: flex; align-items: baseline; gap: 14px; padding: 14px 20px;
+           border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 18px; letter-spacing: .18em; }
+  header h1 b { color: var(--acc); }
+  header span { color: var(--dim); font-size: 11px; }
+  main { display: grid; grid-template-columns: 320px 1fr; gap: 0; height: calc(100vh - 53px); }
+  #controls { overflow-y: auto; border-right: 1px solid var(--line); padding: 16px; }
+  .sec { margin-bottom: 20px; }
+  .sec h2 { font-size: 10px; letter-spacing: .2em; color: var(--dim);
+            text-transform: uppercase; margin-bottom: 8px; }
+  label { display: block; font-size: 11px; color: var(--dim); margin: 8px 0 3px; }
+  input[type=text], select {
+    width: 100%; background: var(--panel2); border: 1px solid var(--line);
+    color: var(--txt); border-radius: 6px; padding: 7px 9px; font: inherit; }
+  input[type=range] { width: 100%; accent-color: var(--acc); }
+  input[type=color] { width: 44px; height: 28px; border: 1px solid var(--line);
+                      border-radius: 6px; background: var(--panel2); padding: 2px; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row > * { flex: 1; }
+  button {
+    background: var(--panel2); border: 1px solid var(--line); color: var(--txt);
+    border-radius: 6px; padding: 8px 12px; cursor: pointer; font: inherit; font-size: 12px; }
+  button:hover { border-color: var(--acc); }
+  button.primary { background: var(--acc); border-color: var(--acc); color: #1a0b0b;
+                   font-weight: 700; letter-spacing: .05em; }
+  button.primary:hover { filter: brightness(1.12); }
+  .tpl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tpl { height: 54px; border-radius: 8px; border: 2px solid transparent; cursor: pointer;
+         position: relative; overflow: hidden; }
+  .tpl.on { border-color: var(--acc2); }
+  .tpl span { position: absolute; left: 6px; bottom: 4px; font-size: 9px;
+              color: #fff; text-shadow: 0 1px 3px #000; letter-spacing: .05em; }
+  #thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+  .thumb { width: 64px; height: 40px; object-fit: cover; border-radius: 4px;
+           border: 2px solid var(--line); cursor: pointer; }
+  .thumb.on { border-color: var(--acc); }
+  .checks { display: flex; gap: 12px; flex-wrap: wrap; }
+  .checks label { display: flex; gap: 5px; align-items: center; margin: 0; font-size: 11px; }
+  #preview-wrap { display: grid; place-items: center; padding: 24px; overflow: auto;
+                  background: repeating-conic-gradient(#14141c 0 25%, #101018 0 50%) 0 0/24px 24px; }
+  #preview { max-width: 100%; max-height: 78vh; border-radius: 6px;
+             box-shadow: 0 12px 60px rgba(0,0,0,.6); }
+  #sizes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  #sizes button { font-size: 10px; padding: 5px 8px; }
+  #sizes button.on { border-color: var(--acc2); color: var(--acc2); }
+  .hint { font-size: 10px; color: var(--dim); margin-top: 6px; }
+  #drop { border: 2px dashed var(--line); border-radius: 10px; padding: 18px 10px;
+          text-align: center; color: var(--dim); font-size: 11px; cursor: pointer; }
+  #drop.over { border-color: var(--acc); color: var(--txt); }
+  .val { color: var(--acc2); font-size: 10px; }
+
+  /* ---- Mobile / touch ---- */
+  button, .tpl, .thumb, #drop { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  @media (max-width: 860px) {
+    header { padding: 10px 14px; gap: 8px; flex-wrap: wrap; }
+    header h1 { font-size: 15px; }
+    header span { font-size: 10px; }
+    main { display: flex; flex-direction: column; height: auto; min-height: calc(100vh - 49px); }
+    #preview-wrap { order: -1; padding: 12px; min-height: 28vh; }
+    #preview { max-height: 40vh; }
+    #controls { border-right: none; border-top: 1px solid var(--line); padding: 14px; }
+    #controls > .sec:last-child {
+      position: sticky; bottom: 0; z-index: 5;
+      background: var(--bg); padding: 10px 0 14px;
+      border-top: 1px solid var(--line); margin-bottom: 0;
+    }
+    button { min-height: 42px; }
+    .tpl { height: 64px; }
+    input[type=text], select { padding: 10px 9px; font-size: 16px; } /* 16px avoids iOS focus-zoom */
+    input[type=range] { height: 28px; }
+    label { margin-top: 10px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>CAPSULE<b>FORGE</b></h1>
+  <span>itch.io marketing assets from screenshots — 100% client-side, no uploads</span>
+</header>
+<main>
+  <div id="controls">
+
+    <div class="sec">
+      <h2>Branding</h2>
+      <label>Game title</label>
+      <input type="text" id="title" value="HALCYON EXPANSE">
+      <label>Tagline</label>
+      <input type="text" id="tagline" value="A hand-drawn journey through the ruin belt">
+      <label>Developer</label>
+      <input type="text" id="dev" value="skitworks">
+      <div class="row">
+        <div><label>Accent</label><input type="color" id="accent" value="#ff5c5c"></div>
+        <div><label>Text color</label><input type="color" id="textcolor" value="#ffffff"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>Background source</h2>
+      <div id="drop">Drop screenshots here<br>or click to browse<input type="file" id="file" accept="image/*" multiple hidden></div>
+      <div style="height:8px"></div>
+      <button id="sample" style="width:100%">✦ Generate sample key art</button>
+      <div id="thumbs"></div>
+      <label>Art crop <span class="val" id="cropv">50%</span></label>
+      <input type="range" id="crop" min="0" max="100" value="50">
+    </div>
+
+    <div class="sec">
+      <h2>Template</h2>
+      <div class="tpl-grid" id="tpls"></div>
+    </div>
+
+    <div class="sec">
+      <h2>Canvas size</h2>
+      <div id="sizes"></div>
+      <div class="hint">itch cover 630×500 · thumbnail 315×250 · OG card 1200×630</div>
+    </div>
+
+    <div class="sec">
+      <h2>Composition</h2>
+      <label>Text anchor</label>
+      <select id="anchor">
+        <option value="bl" selected>Bottom-left</option><option value="bc">Bottom-center</option>
+        <option value="br">Bottom-right</option><option value="cl">Center-left</option>
+        <option value="cc">Dead center</option><option value="cr">Center-right</option>
+        <option value="tl">Top-left</option><option value="tc">Top-center</option><option value="tr">Top-right</option>
+      </select>
+      <label>Title size <span class="val" id="tsizev">auto</span></label>
+      <input type="range" id="tsize" min="8" max="120" value="0">
+      <label>Glow <span class="val" id="glowv">40%</span></label>
+      <input type="range" id="glow" min="0" max="100" value="40">
+      <label>Vignette <span class="val" id="vigv">35%</span></label>
+      <input type="range" id="vig" min="0" max="100" value="35">
+      <label>Gradient overlay <span class="val" id="gradv">55%</span></label>
+      <input type="range" id="grad" min="0" max="100" value="55">
+      <div class="checks" style="margin-top:8px">
+        <label><input type="checkbox" id="badges" checked> Platform badges</label>
+        <label><input type="checkbox" id="scan" > Scanlines</label>
+      </div>
+      <div class="checks" id="plats" style="margin-top:6px"></div>
+    </div>
+
+    <div class="sec">
+      <button class="primary" id="export" style="width:100%">⬇ DOWNLOAD PNG</button>
+      <div style="height:6px"></div>
+      <button id="exportall" style="width:100%">⬇⬇ Export every itch.io size</button>
+      <div class="hint">All rendering happens in your browser. Nothing is uploaded, ever.</div>
+    </div>
+
+  </div>
+  <div id="preview-wrap"><canvas id="preview" width="630" height="500"></canvas></div>
+</main>
+<script src="studio.js"></script>
+</body>
+</html>

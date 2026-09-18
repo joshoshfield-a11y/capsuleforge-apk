@@ -574,6 +574,43 @@ function markThumb(idx) {
     el.classList.toggle("on", +el.dataset.idx === idx));
 }
 
+// ---------- touch sliders ----------
+// Native range inputs are unreliable under touch: the first touchmove snaps the
+// value before the browser claims the gesture for scrolling. Take over: lock the
+// gesture direction on the dominant axis — horizontal adjusts, vertical scrolls.
+function initTouchSliders() {
+  document.querySelectorAll("input[type=range]").forEach((el) => {
+    el.style.touchAction = "none";
+    let startX = 0, startY = 0, prevY = 0, mode = null;
+    el.addEventListener("touchstart", (e) => {
+      e.preventDefault();                    // block native tap-snap: value only changes on horizontal drag
+      const t = e.touches[0];
+      startX = t.clientX; startY = t.clientY; prevY = t.clientY; mode = null;
+    }, { passive: false });
+    el.addEventListener("touchmove", (e) => {
+      const t = e.touches[0];
+      const dx = t.clientX - startX, dy = t.clientY - startY;
+      if (!mode && (Math.abs(dx) > 6 || Math.abs(dy) > 6))
+        mode = Math.abs(dx) >= Math.abs(dy) ? "h" : "v";
+      if (mode === "h") {
+        e.preventDefault();                      // no native adjust, no scroll
+        const r = el.getBoundingClientRect();
+        const min = +el.min, max = +el.max;
+        let v = min + (max - min) * ((t.clientX - r.left) / r.width);
+        v = Math.max(min, Math.min(max, Math.round(v)));
+        if (v !== +el.value) {
+          el.value = v;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      } else if (mode === "v") {
+        window.scrollBy(0, prevY - t.clientY);   // content follows the finger
+      }
+      prevY = t.clientY;
+    }, { passive: false });
+  });
+}
+initTouchSliders();
+
 init();
 /* test hook */
 window.__cf = { state, render, SIZES, TEMPLATES, refresh };
